@@ -1,0 +1,45 @@
+import requests
+from langchain.docstore import KBServiceFactory
+
+# 创建和加载向量库
+kb_service = KBServiceFactory.create()
+
+# 向向量库中存储文档向量
+def store_document_vectors(documents):
+    for doc in documents:
+        vector = compute_vector(doc.text)  # 自定义函数，将文本转化为向量
+        kb_service.add_doc_with_vec(doc.id, doc.text, vector)
+
+# 从向量库中查询文档
+def search_documents(query):
+    results = kb_service.search_docs(query)
+    return [doc for doc in results]
+
+# 调用LLM模型的API进行文本生成
+def generate_text(prompt):
+    url = "http://localhost:8080/llm"  # LLM模型API的地址
+    headers = {"Content-Type": "application/json"}
+    data = {"prompt": prompt}
+
+    response = requests.post(url, json=data, headers=headers)
+    generated_text = response.json()
+
+    return generated_text
+
+# 创建文档对象列表（示例）
+documents = [
+    Document(id=1, text="This is document 1"),
+    Document(id=2, text="Another document here"),
+    Document(id=3, text="One more document")
+]
+
+# 存储文档向量到向量库
+store_document_vectors(documents)
+
+# 查询文档并调用LLM模型进行文本生成
+query = "document"
+search_results = search_documents(query)
+
+for doc in search_results:
+    generated_text = generate_text(doc.text)
+    print("Generated text:", generated_text)
