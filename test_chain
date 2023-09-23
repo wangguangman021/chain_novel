@@ -1,0 +1,58 @@
+import faiss
+import numpy as np
+from transformers import AutoTokenizer, AutoModel
+
+def do_add_doc(docs):
+    model_name = 'bert-base-uncased'  # 替换为所需的Hugging Face模型的名称
+
+    # 加载tokenizer和model
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModel.from_pretrained(model_name)
+
+    embeddings = [tokenizer, model]  # 将tokenizer和model作为embeddings返回
+    embed_device = embedding_device()
+
+    # 创建faiss向量索引
+    index = faiss.IndexFlatIP(embeddings[1].config.hidden_size) # 使用内积作为相似度度量
+
+    for doc in docs:
+        # 将文档内容转化为向量表示
+        vector = embeddings[1](embeddings[0](doc.content, return_tensors='pt'))[0]
+        
+        # 添加文档到向量库
+        index.add(vector.numpy())
+
+    # 返回faiss向量索引对象
+    return index
+
+def retrieve_doc(query, index, k=5):
+    model_name = 'bert-base-uncased'  # 替换为所需的Hugging Face模型的名称
+
+    # 加载tokenizer和model
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModel.from_pretrained(model_name)
+
+    # 将查询内容转化为向量表示
+    query_vector = model(tokenizer(query, return_tensors='pt'))[0]
+
+    # 使用faiss索引进行检索
+    _, doc_indices = index.search(np.array([query_vector.numpy()]), k)
+
+    # 返回最相似的文档列表
+    return doc_indices[0]
+
+# 示例用法
+docs = [...]  # 文档列表
+
+vector_index_path = '/path/to/vector_index.faiss'
+index = do_add_doc(docs)  # 获取向量索引对象
+
+# 保存向量索引到文件
+faiss.write_index(index, vector_index_path)
+
+# 加载向量索引
+index = faiss.read_index(vector_index_path)
+
+# 进行查询并检索相似的文档
+query = "example query"
+similar_docs = retrieve_doc(query, index, k=5)
