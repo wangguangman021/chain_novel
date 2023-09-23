@@ -1,0 +1,34 @@
+import jieba  
+import numpy as np  
+import faiss  
+  
+# 加载word2vec模型  
+model = faiss.read_index('word2vec.bin')  
+  
+# 加载文本文件  
+with open('text.txt', 'r', encoding='utf-8') as f:  
+    text = f.read()  
+  
+# 将文本分词并转换为向量  
+tokens = jieba.lcut(text)  
+vectors = np.zeros((len(tokens), model.d))  
+for i, token in enumerate(tokens):  
+    if token in model:  
+        vectors[i] = model[token]  
+  
+# 将向量加载到Faiss向量库中  
+index = faiss.IndexFlatL2(model.d)  
+index.add(vectors)  
+  
+# 进行字符串匹配  
+query = '你好，世界！'  
+query_vector = np.zeros(model.d)  
+for token in jieba.lcut(query):  
+    if token in model:  
+        query_vector += model[token]  
+query_vector /= len(jieba.lcut(query))  
+  
+D, I = index.search(np.array([query_vector]), k=5)  
+print('匹配结果：')  
+for i in I[0]:  
+    print(tokens[i])
