@@ -56,3 +56,10 @@ index = faiss.read_index(vector_index_path)
 # 进行查询并检索相似的文档
 query = "example query"
 similar_docs = retrieve_doc(query, index, k=5)
+#在上述代码中，并没有明确涉及到调用嵌入（embedding）模型的部分。示例代码中的 compute_vector() 函数是一个自定义函数，用于将文本转化为向量。具体实现细节取决于你使用的嵌入模型。
+
+#如果你的目标是使用嵌入模型将文本转化为向量，你需要根据具体的嵌入模型进行相应的调用。示例代码只包含了存储和查询向量库、以及调用 LLM 模型的部分逻辑，对于嵌入模型的调用部分需要根据你所使用的具体嵌入模型来进行实现。
+
+#记住在 store_document_vectors() 函数中，我们假设已经有了 compute_vector() 函数，它可以将文本转化为向量。你需要根据你的嵌入模型的要求，自定义 compute_vector() 函数的实现。
+
+#因此，在上述代码中，如果你想要调用嵌入模型，则需要根据你使用的嵌入模型，添加相关的代码来计算文本的嵌入向量，并传递给 kb_service 的 add_doc_with_vec() 函数。
