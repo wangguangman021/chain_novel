@@ -1,41 +1,79 @@
-import faiss
-import numpy as np
+import torch
+from transformers import AutoTokenizer, AutoModel
+from faiss import IndexFlatIP
+import argparse
 
-class FaissVectorLibrary:
-    def __init__(self):
-        self.index = None
-        self.embeddings = None
-    
-    def train_embedding_model(self, texts, embedding_size):
-        # 训练embedding模型
-        self.embeddings = self.create_embedding_model(texts, embedding_size)
-    
-    def create_embedding_model(self, texts, embedding_size):
-        # 实现你自己的embedding模型
-        # 返回一个embedding_size维度的向量列表
-        pass
-    
-    def add_documents_to_index(self, documents, document_ids):
-        # 将文档向量化并添加到索引中
-        self.embeddings = self.create_embedding_model(documents, embedding_size)
-        self.index = self.create_index(self.embeddings)
-        self.index.add(self.embeddings)
-    
-    def create_index(self, embeddings):
-        # 实现你自己的索引类型
-        # 返回一个faiss索引对象
-        pass
-    
-    def search_similar_documents(self, query_text, top_k):
-        # 检索相似文档
-        query_embedding = self.create_embedding_model([query_text], embedding_size)
-        D, I = self.index.search(query_embedding, top_k)
-        return [(document_ids[i], np.linalg.norm(query_embedding - embeddings[i])) for i in I[0]]
-    
-    def generate_prompt(self, query_text, top_k):
-        # 生成prompt
-        similar_documents = self.search_similar_documents(query_text, top_k)
-        prompt = f"与'{query_text}'最相似的文档有：\n"
-        for document_id, similarity in similar_documents:
-            prompt += f"- '{document_id}': 相似度为 {similarity:.2f}\n"
-        return prompt
+def do_add_doc(docs):
+    model_name = 'bert-base-uncased'  # 替换为所需的Hugging Face模型的名称
+
+    # 加载tokenizer和model
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModel.from_pretrained(model_name)
+
+    # 将tokenizer和model作为embeddings返回
+    embeddings = [tokenizer, model]
+
+    # 创建faiss向量索引
+    index = faiss.IndexFlatIP(model.config.hidden_size) # 使用内积作为相似度度量
+
+    for doc in docs:
+        # 将文档内容转化为向量表示
+        with torch.no_grad():
+            input_ids = tokenizer.encode(doc.content, return_tensors='pt')
+            vector = model(input_ids)[0]
+
+        # 添加文档到向量库
+        index.add(vector.numpy())
+
+    # 返回faiss向量索引对象
+    return index
+
+def do_search(index, query):
+    # 将查询内容转化为向量表示
+    with torch.no_grad():
+        input_ids = tokenizer.encode(query, return_tensors='pt')
+        vector = model(input_ids)[0]
+
+    # 在向量索引中搜索相似文档
+    D, I = index.search(vector.numpy(), 10)
+
+    # 返回相似文档的内容
+    results = []
+    for i in I[0]:
+        results.append(documents[i].content)
+
+    return results
+
+# 加载文档内容
+documents = [
+    {'content': '这是第一篇文档'},
+    {'content': '这是第二篇文档'},
+    {'content': '这是第三篇文档'}
+]
+
+# 加载预训练模型
+model_name = 'bert-base-uncased'  # 替换为所需的Hugging Face模型的名称
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
+
+# 创建命令行解析器
+parser = argparse.ArgumentParser(description='Add documents to a vector database and search for similar documents.')
+parser.add_argument('--add-documents', type=str, help='Path to a file containing the documents to add to the database.')
+parser.add_argument('--vector-database', type=str, help='Path to the directory containing the vector database.')
+args = parser.parse_args()
+
+# 加载文档内容
+with open(args.add_documents, 'r') as f:
+    for line in f:
+        doc = json.loads(line)
+        documents.append(doc)
+
+# 创建faiss向量索引
+index = do_add_doc(documents)
+
+# 在向量索引中搜索相似文档
+query = '这是一篇文档'
+results = do_search(index, query)
+
+# 输出搜索结果
+print(results)
